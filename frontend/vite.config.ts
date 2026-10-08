@@ -12,7 +12,10 @@ function localApiLauncher() {
 
   return {
     name: 'local-file-organizer-api-launcher',
-    configureServer(server: { middlewares: { use: (handler: (req: any, res: any, next: () => void) => void) => void }; httpServer?: { once: (event: string, callback: () => void) => void } }) {
+    configureServer(server: {
+      middlewares: { use: (handler: (req: any, res: any, next: () => void) => void) => void }
+      httpServer?: { once: (event: string, callback: () => void) => void }
+    }) {
       server.middlewares.use((req, res, next) => {
         if (req.url !== '/__local/start-api' || req.method !== 'POST') return next()
         res.setHeader('Content-Type', 'application/json; charset=utf-8')
@@ -31,7 +34,9 @@ function localApiLauncher() {
             try {
               const response = await fetch(apiUrl, { signal: AbortSignal.timeout(1000) })
               if (response.ok) return
-            } catch { /* The backend is still starting. */ }
+            } catch {
+              /* The backend is still starting. */
+            }
             await new Promise((resolve) => setTimeout(resolve, 400))
           }
           throw new Error(`Timed out waiting for ${apiUrl}. ${output.trim()}`.trim())
@@ -39,32 +44,61 @@ function localApiLauncher() {
 
         void (async () => {
           try {
-            const existing = await fetch(apiUrl, { signal: AbortSignal.timeout(1200) }).catch(() => null)
-            if (existing?.ok) return respond(200, { started: false, message: 'The API is already running.' })
+            const existing = await fetch(apiUrl, { signal: AbortSignal.timeout(1200) }).catch(
+              () => null,
+            )
+            if (existing?.ok)
+              return respond(200, { started: false, message: 'The API is already running.' })
             if (!apiProcess || apiProcess.exitCode !== null) {
               output = ''
-              const python = process.env.FILE_ORGANIZER_PYTHON || (process.platform === 'win32' ? 'py' : 'python3')
-              apiProcess = spawn(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', new URL(apiUrl).port || '8000'], {
-                cwd: path.resolve(backendDirectory),
-                windowsHide: true,
-                env: { ...process.env, PYTHONUNBUFFERED: '1' },
-                stdio: ['ignore', 'pipe', 'pipe'],
-              })
-              const collect = (chunk: Buffer) => { output = `${output}${chunk.toString()}`.slice(-6000) }
+              const python =
+                process.env.FILE_ORGANIZER_PYTHON ||
+                (process.platform === 'win32' ? 'py' : 'python3')
+              apiProcess = spawn(
+                python,
+                [
+                  '-m',
+                  'uvicorn',
+                  'app.main:app',
+                  '--host',
+                  '127.0.0.1',
+                  '--port',
+                  new URL(apiUrl).port || '8000',
+                ],
+                {
+                  cwd: path.resolve(backendDirectory),
+                  windowsHide: true,
+                  env: { ...process.env, PYTHONUNBUFFERED: '1' },
+                  stdio: ['ignore', 'pipe', 'pipe'],
+                },
+              )
+              const collect = (chunk: Buffer) => {
+                output = `${output}${chunk.toString()}`.slice(-6000)
+              }
               apiProcess.stdout?.on('data', collect)
               apiProcess.stderr?.on('data', collect)
-              apiProcess.once('error', (error) => { output = error.message })
+              apiProcess.once('error', (error) => {
+                output = error.message
+              })
             }
             await waitUntilReady()
             respond(200, { started: true, message: 'The API is running.' })
           } catch (error) {
-            respond(500, { started: false, detail: error instanceof Error ? error.message : 'Could not start the API.' })
+            respond(500, {
+              started: false,
+              detail: error instanceof Error ? error.message : 'Could not start the API.',
+            })
           }
         })()
       })
-      server.httpServer?.once('close', () => { apiProcess?.kill() })
+      server.httpServer?.once('close', () => {
+        apiProcess?.kill()
+      })
     },
   }
 }
 
-export default defineConfig({ plugins: [react(), localApiLauncher()], server: { host: '127.0.0.1', port: 5173 } })
+export default defineConfig({
+  plugins: [react(), localApiLauncher() as import('vite').Plugin],
+  server: { host: '127.0.0.1', port: 5173 },
+})

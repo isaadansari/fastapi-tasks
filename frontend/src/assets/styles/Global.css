@@ -1,0 +1,6 @@
+/* Central stylesheet entry point; styles remain split by feature. */
+@import '../../styles.css';
+@import '../../offline.css';
+@import '../../cleanup.css';
+@import '../../organize.css';
+@import '../../taxonomy.css';
