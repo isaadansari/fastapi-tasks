@@ -17,6 +17,19 @@ uvicorn app.main:app --reload
 
 Interactive API documentation is at `http://127.0.0.1:8000/docs`.
 
+## Run the React frontend
+
+In a second PowerShell window:
+
+```powershell
+cd E:\Python\fastapi-tasks\frontend
+Copy-Item .env.example .env
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.env` (default `http://127.0.0.1:8000`). Keep the FastAPI server running in the first window.
+
 ## API
 
 - `GET /files?category=Images&search=photo&limit=100&offset=0` — paginated index.
