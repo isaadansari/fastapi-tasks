@@ -9,13 +9,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ScanRequest(BaseModel):
     root_path: str = Field(min_length=1, description="Directory to recursively scan")
-    hash_files: bool = True
+    hash_files: bool = False
 
 
 class OrganizeRequest(BaseModel):
     root_path: str = Field(min_length=1, description="Directory whose files should be organized recursively")
     dry_run: bool = True
     organization: Literal["category", "year", "month", "date"] = "category"
+
+
+class RevertOrganizationRequest(BaseModel):
+    root_path: str = Field(min_length=1, description="Directory containing the organization manifest")
+    dry_run: bool = True
 
 
 class FileResponse(BaseModel):
@@ -26,6 +31,10 @@ class FileResponse(BaseModel):
     filename: str
     extension: str
     category: str
+    subcategory: str
+    type_label: str
+    subcategory: str
+    type_label: str
     size: int
     created_at: datetime
     modified_at: datetime
@@ -56,6 +65,27 @@ class OrganizeResponse(BaseModel):
     dry_run: bool
     moved: int
     moves: list[OrganizeMove]
+    operation_id: str | None = None
+
+
+class OrganizationHistoryResponse(BaseModel):
+    can_revert: bool
+    files_to_revert: int
+    organized_at: str | None
+
+
+class OrganizationHistoryResponse(BaseModel):
+    can_undo: bool
+    batch_id: str | None = None
+    organization: str | None = None
+    moved: int = 0
+    created_at: datetime | None = None
+
+
+class UndoOrganizationResponse(BaseModel):
+    batch_id: str
+    organization: str
+    restored: int
 
 
 class DuplicateGroup(BaseModel):

@@ -34,12 +34,13 @@ Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.
 
 - `GET /files?category=Images&search=photo&limit=100&offset=0` — paginated index.
 - `GET /files/{id}` — one indexed record.
-- `POST /scan` with `{"root_path":"E:\\test-dropbox","hash_files":true}` — recursively index files. Hashing can be disabled for faster scans; run the scan with hashing enabled before duplicate detection.
+- `POST /scan` with `{"root_path":"E:\\test-dropbox"}` — recursively read and store file metadata without hashing file contents. Set `hash_files` to `true` only when you explicitly want a full hash scan.
 - `POST /duplicates` — groups indexed files by SHA-256.
+- `GET /organize/history?root_path=...` and `POST /organize/revert` — preview and undo the latest applied organization. The reversible path manifest is stored in the selected folder as `.file-organizer-history.json`.
 - `POST /organize` with `{"root_path":"E:\\test-dropbox","dry_run":true,"organization":"month"}` — recursively preview moves, including files already inside folders from an earlier organization. `organization` can be `category`, `year`, `month`, or `date`; date layouts use each file's modified time and create `YYYY`, `YYYY/MM`, or `YYYY/MM/DD` folders. Set `dry_run` to `false` to apply the moves. Existing names receive a numbered suffix rather than being overwritten.
 - `DELETE /files/{id}` — remove the database record only; it does not delete the physical file.
 - `DELETE /files` — clear all indexed records only; it does not delete files or folders on disk.
 
 The scan root is provided per request. Filesystem paths are kept local to the server and should only be exposed to trusted clients. The organizer starts in preview mode by default. Timestamps are stored as UTC. SQLite database location is configured with `DATABASE_URL`.
 
-Categories: Images, Documents, Videos, Music, Archives, Code, Other.
+Scanning records metadata without hashing file contents. Duplicate detection hashes only files whose sizes match, and runs when the Duplicates view is opened. Categories include Images, Documents, Videos, Music, Archives, Code, Applications, Fonts, 3D & CAD, and Other. Each scanned file also has a subcategory and an extension-based type label.

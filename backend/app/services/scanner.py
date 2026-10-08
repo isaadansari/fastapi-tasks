@@ -10,23 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import FileRecord
+from app.services.taxonomy import classify_file
+from app.services.classifier import classify_file
 
 logger = logging.getLogger(__name__)
-
-CATEGORIES: dict[str, set[str]] = {
-    "Images": {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".tif", ".tiff", ".heic"},
-    "Documents": {".pdf", ".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".csv", ".xls", ".xlsx", ".ppt", ".pptx"},
-    "Videos": {".mp4", ".mkv", ".mov", ".avi", ".wmv", ".webm", ".m4v", ".mpeg", ".mpg"},
-    "Music": {".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma", ".aiff"},
-    "Archives": {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"},
-    "Code": {".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".json", ".yaml", ".yml", ".toml", ".java", ".kt", ".c", ".cpp", ".h", ".cs", ".go", ".rs", ".php", ".sh", ".sql"},
-}
-
-
-def categorize(extension: str) -> str:
-    ext = extension.lower()
-    return next((category for category, extensions in CATEGORIES.items() if ext in extensions), "Other")
-
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -57,11 +44,14 @@ def scan_files_in_directory(root_path: str, db: Session, hash_files: bool = True
                 stat = path.stat()
                 extension = path.suffix.lower()
                 digest = sha256_file(path) if hash_files else None
+                category, subcategory, type_label = classify_file(path)
                 record = db.scalar(select(FileRecord).where(FileRecord.path == str(path)))
                 values = {
                     "filename": path.name,
                     "extension": extension,
-                    "category": categorize(extension),
+                    "category": category,
+                    "subcategory": subcategory,
+                    "type_label": type_label,
                     "size": stat.st_size,
                     "created_at": _utc_timestamp(getattr(stat, "st_birthtime", stat.st_ctime)),
                     "modified_at": _utc_timestamp(stat.st_mtime),

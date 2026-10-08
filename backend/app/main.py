@@ -17,6 +17,19 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "sqlite":
+        with engine.begin() as connection:
+            existing_columns = {
+                row[1] for row in connection.exec_driver_sql("PRAGMA table_info(files)").fetchall()
+            }
+            if "subcategory" not in existing_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE files ADD COLUMN subcategory VARCHAR(64) NOT NULL DEFAULT 'Uncategorized'"
+                )
+            if "type_label" not in existing_columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE files ADD COLUMN type_label VARCHAR(32) NOT NULL DEFAULT 'FILE'"
+                )
     yield
 
 

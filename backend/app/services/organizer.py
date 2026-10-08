@@ -4,13 +4,14 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import FileRecord
+from app.models import FileRecord, OrganizationBatch, OrganizationMoveRecord
 from app.schemas.files import OrganizeMove
-from app.services.scanner import categorize
+from app.services.classifier import classify_file
 
 
 def _destination(directory: Path, filename: str) -> Path:
@@ -48,35 +49,55 @@ def organize_files_in_directory(
             if not source.is_symlink() and source.is_file():
                 source_files.append(source)
 
-    for source in sorted(source_files):
-        category = categorize(source.suffix.lower())
-        if organization == "category":
-            destination_dir = root / category
-        else:
-            modified = datetime.fromtimestamp(source.stat().st_mtime)
-            parts = [f"{modified.year:04d}"]
-            if organization in {"month", "date"}:
-                parts.append(f"{modified.month:02d}")
-            if organization == "date":
-                parts.append(f"{modified.day:02d}")
-            destination_dir = root.joinpath(*parts)
-        # Already correctly placed files are left alone, making a repeated run idempotent.
-        if source.parent == destination_dir:
-            continue
-        destination = _destination(destination_dir, source.name)
-        moves.append(OrganizeMove(source=str(source), destination=str(destination), category=category))
-        if dry_run:
-            continue
-        destination_dir.mkdir(parents=True, exist_ok=True)
-        # Avoid overwrite if another process creates the candidate after planning.
-        destination = _destination(destination_dir, source.name)
-        os.replace(source, destination)
-        record = db.scalar(select(FileRecord).where(FileRecord.path == str(source)))
-        if record:
-            record.path = str(destination)
-            record.filename = destination.name
+    completed_moves: list[tuple[Path, Path]] = []
+    batch: OrganizationBatch | None = None
+    try:
+        for source in sorted(source_files):
+            category, subcategory, _ = classify_file(source)
             if organization == "category":
-                record.category = category
-    if not dry_run:
-        db.commit()
+                destination_dir = root / category / subcategory
+            else:
+                modified = datetime.fromtimestamp(source.stat().st_mtime)
+                parts = [f"{modified.year:04d}"]
+                if organization in {"month", "date"}:
+                    parts.append(f"{modified.month:02d}")
+                if organization == "date":
+                    parts.append(f"{modified.day:02d}")
+                destination_dir = root.joinpath(*parts)
+            # Already correctly placed files are left alone, making a repeated run idempotent.
+            if source.parent == destination_dir:
+                continue
+            destination = _destination(destination_dir, source.name)
+            moves.append(OrganizeMove(source=str(source), destination=str(destination), category=category))
+            if dry_run:
+                continue
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            # Avoid overwrite if another process creates the candidate after planning.
+            destination = _destination(destination_dir, source.name)
+            os.replace(source, destination)
+            completed_moves.append((source, destination))
+            if batch is None:
+                batch = OrganizationBatch(id=str(uuid4()), organization=organization)
+                db.add(batch)
+            record = db.scalar(select(FileRecord).where(FileRecord.path == str(source)))
+            if record:
+                record.path = str(destination)
+                record.filename = destination.name
+                if organization == "category":
+                    record.category = category
+                    record.subcategory = subcategory
+            db.add(OrganizationMoveRecord(
+                batch_id=batch.id,
+                source_path=str(source),
+                destination_path=str(destination),
+            ))
+        if not dry_run:
+            db.commit()
+    except Exception:
+        db.rollback()
+        for source, destination in reversed(completed_moves):
+            if destination.exists() and not source.exists():
+                source.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(destination, source)
+        raise
     return moves

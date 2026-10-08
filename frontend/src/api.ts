@@ -4,6 +4,8 @@ export type FileRecord = {
   filename: string
   extension: string
   category: string
+  subcategory: string
+  type_label: string
   size: number
   created_at: string
   modified_at: string
@@ -41,16 +43,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const fileOrganizerApi = {
-  listFiles: (params: { offset?: number; limit?: number; category?: string; search?: string } = {}) => {
+  listFiles: (params: { offset?: number; limit?: number; category?: string; subcategory?: string; search?: string } = {}) => {
     const query = new URLSearchParams()
     query.set('limit', String(params.limit ?? 100))
     query.set('offset', String(params.offset ?? 0))
     if (params.category) query.set('category', params.category)
+    if (params.subcategory) query.set('subcategory', params.subcategory)
     if (params.search) query.set('search', params.search)
     return request<FilePage>(`/files?${query}`)
   },
   scanFolder: (root_path: string) => request<{ scanned: number; added: number; updated: number; skipped: number }>('/scan', {
-    method: 'POST', body: JSON.stringify({ root_path, hash_files: true }),
+    method: 'POST', body: JSON.stringify({ root_path, hash_files: false }),
   }),
   findDuplicateFileGroups: () => request<{ groups: DuplicateGroup[]; duplicate_files: number }>('/duplicates', { method: 'POST' }),
   organizeFolder: (root_path: string, dry_run: boolean, organization: Organization) => request<OrganizeResult>('/organize', {
@@ -58,6 +61,25 @@ export const fileOrganizerApi = {
   }),
   removeFileRecord: (id: number) => request<void>(`/files/${id}`, { method: 'DELETE' }),
   clearIndexedLibrary: () => request<{ deleted: number }>('/files', { method: 'DELETE' }),
+  getOrganizationHistory: (root_path: string) => request<{ can_revert: boolean; files_to_revert: number; organized_at: string | null }>(`/organize/history?root_path=${encodeURIComponent(root_path)}`),
+  previewOrganizationRevert: (root_path: string) => request<OrganizeResult>('/organize/revert', {
+    method: 'POST', body: JSON.stringify({ root_path, dry_run: true }),
+  }),
+  revertLastOrganization: (root_path: string) => request<OrganizeResult>('/organize/revert', {
+    method: 'POST', body: JSON.stringify({ root_path, dry_run: false }),
+  }),
 }
 
-export const categories = ['Images', 'Documents', 'Videos', 'Music', 'Archives', 'Code', 'Other']
+export const categories = ['Images', 'Documents', 'Videos', 'Music', 'Archives', 'Code', 'Applications', 'Fonts', '3D & CAD', 'Other']
+export const subcategoriesByCategory: Record<string, string[]> = {
+  Images: ['Photos', 'Graphics', 'Camera RAW'],
+  Documents: ['PDFs', 'Text & Notes', 'Word Documents', 'Spreadsheets', 'Presentations', 'Ebooks'],
+  Videos: ['Movies', 'Video Projects'],
+  Music: ['Compressed Audio', 'Lossless Audio', 'Playlists'],
+  Archives: ['Compressed Folders', 'Disk Images'],
+  Code: ['Python', 'JavaScript & TypeScript', 'Web', 'Systems Languages', 'Data & Config', 'Scripts'],
+  Applications: ['Installers', 'Mobile Apps'],
+  Fonts: ['Font Files'],
+  '3D & CAD': ['3D Models', 'CAD Drawings'],
+  Other: ['Uncategorized'],
+}
