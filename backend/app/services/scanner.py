@@ -40,7 +40,7 @@ def _utc_timestamp(timestamp: float) -> datetime:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc)
 
 
-def scan_directory(root_path: str, db: Session, hash_files: bool = True) -> dict[str, int]:
+def scan_files_in_directory(root_path: str, db: Session, hash_files: bool = True) -> dict[str, int]:
     root = Path(root_path).expanduser().resolve(strict=True)
     if not root.is_dir():
         raise ValueError("root_path must be a directory")

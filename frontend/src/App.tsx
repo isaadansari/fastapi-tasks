@@ -3,10 +3,12 @@ import {
   Archive, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown,
   CircleHelp, Code2, File, FileImage, FileText, Film, Folder, FolderOpen, HardDrive,
   LayoutDashboard, LoaderCircle, Music2, Plus, RefreshCw, Search, Settings2, ShieldCheck,
-  Sparkles, TriangleAlert, X,
+  Sparkles, TriangleAlert, Trash2, X,
 } from 'lucide-react'
-import { api, categories, type DuplicateGroup, type FileRecord, type Move } from './api'
+import { fileOrganizerApi, categories, type DuplicateGroup, type FileRecord, type Move, type Organization } from './api'
 import './offline.css'
+import './cleanup.css'
+import './organize.css'
 
 type View = 'overview' | 'all' | 'duplicates'
 const categoryIcons: Record<string, typeof File> = {
@@ -45,7 +47,9 @@ export default function App() {
   const [scannedRoot, setScannedRoot] = useState('')
   const [scanOpen, setScanOpen] = useState(false)
   const [organizeOpen, setOrganizeOpen] = useState(false)
+  const [clearOpen, setClearOpen] = useState(false)
   const [moves, setMoves] = useState<Move[]>([])
+  const [organizeMode, setOrganizeMode] = useState<Organization>('category')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [apiOffline, setApiOffline] = useState(false)
@@ -55,18 +59,18 @@ export default function App() {
   const pageSize = 10
 
   const loadFiles = useCallback(async () => {
-    const result = await api.files({ offset: page * pageSize, limit: pageSize, category: selectedCategory || undefined, search: search || undefined })
+    const result = await fileOrganizerApi.listFiles({ offset: page * pageSize, limit: pageSize, category: selectedCategory || undefined, search: search || undefined })
     setFiles(result.items)
     setTotal(result.total)
   }, [page, selectedCategory, search])
   const loadDuplicates = useCallback(async () => {
-    const result = await api.duplicates()
+    const result = await fileOrganizerApi.findDuplicateFileGroups()
     setDuplicates(result.groups)
     setDuplicateCount(result.duplicate_files)
   }, [])
   const loadCategoryCounts = useCallback(async () => {
     const entries = await Promise.all(categories.map(async (category) => {
-      const result = await api.files({ limit: 1, category })
+      const result = await fileOrganizerApi.listFiles({ limit: 1, category })
       return [category, result.total] as const
     }))
     setCategoryCounts(Object.fromEntries(entries))
@@ -103,7 +107,7 @@ export default function App() {
     if (!rootPath.trim()) return
     setBusy('scan'); setError(''); setNotice('')
     try {
-      const result = await api.scan(rootPath.trim())
+      const result = await fileOrganizerApi.scanFolder(rootPath.trim())
       setScannedRoot(rootPath.trim())
       setScanOpen(false)
       setNotice(`Scan complete · ${result.scanned.toLocaleString()} files indexed · ${result.added} new`)
@@ -112,11 +116,11 @@ export default function App() {
     finally { setBusy('') }
   }
 
-  async function previewOrganize() {
+  async function previewOrganize(mode: Organization = organizeMode) {
     if (!scannedRoot) { setError('Scan a folder first so the organizer knows which folder to use.'); return }
-    setBusy('organize'); setError('')
+    setBusy('organize'); setError(''); setOrganizeMode(mode)
     try {
-      const result = await api.organize(scannedRoot, true)
+      const result = await fileOrganizerApi.organizeFolder(scannedRoot, true, mode)
       setMoves(result.moves); setOrganizeOpen(true)
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not preview organization.') }
     finally { setBusy('') }
@@ -125,7 +129,7 @@ export default function App() {
   async function applyOrganize() {
     setBusy('organize'); setError('')
     try {
-      const result = await api.organize(scannedRoot, false)
+      const result = await fileOrganizerApi.organizeFolder(scannedRoot, false, organizeMode)
       setOrganizeOpen(false); setNotice(`${result.moved} files organized into category folders.`)
       await refresh()
     } catch (e) { setError(e instanceof Error ? e.message : 'Organization failed.') }
@@ -135,9 +139,19 @@ export default function App() {
   async function removeFile(file: FileRecord) {
     setBusy(`delete-${file.id}`); setError('')
     try {
-      await api.deleteFile(file.id); setConfirmDelete(null); setNotice('File removed from the index. The disk file was kept.')
+      await fileOrganizerApi.removeFileRecord(file.id); setConfirmDelete(null); setNotice('File removed from the index. The disk file was kept.')
       await refresh()
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not remove file.') }
+    finally { setBusy('') }
+  }
+
+  async function clearLibrary() {
+    setBusy('clear'); setError('')
+    try {
+      const result = await fileOrganizerApi.clearIndexedLibrary()
+      setClearOpen(false); setNotice(`${result.deleted.toLocaleString()} indexed records cleared. Files on disk were left untouched.`)
+      await refresh()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not clear the library.') }
     finally { setBusy('') }
   }
 
@@ -197,6 +211,7 @@ export default function App() {
               <button className="action-card" onClick={() => setScanOpen(true)}><span className="action-icon lavender"><FolderOpen size={18} /></span><span><b>Scan a folder</b><small>Add files from your computer</small></span><ChevronRight size={15} /></button>
               <button className="action-card" onClick={() => setView('duplicates')}><span className="action-icon peach"><CopyIcon /></span><span><b>Review duplicates</b><small>{duplicateCount ? `${duplicateCount} files could be duplicates` : 'Find identical files'}</small></span><ChevronRight size={15} /></button>
               <button className="action-card" onClick={() => void previewOrganize()}><span className="action-icon mint"><Sparkles size={18} /></span><span><b>Organize files</b><small>Sort files into category folders</small></span>{busy === 'organize' ? <LoaderCircle className="spin" size={16} /> : <ChevronRight size={15} />}</button>
+              <button className="action-card clear-action" onClick={() => setClearOpen(true)}><span className="action-icon clear-action-icon"><Trash2 size={17} /></span><span><b>Clear library</b><small>Remove indexed records, keep disk files</small></span><ChevronRight size={15} /></button>
               <div className="privacy-note"><ShieldCheck size={15} /><span>Your files stay on your device.<br /><b>Private by design.</b></span></div>
             </div>
           </section>
@@ -205,7 +220,7 @@ export default function App() {
 
         {view === 'all' && <>
           <section className="page-heading"><div><div className="eyebrow">YOUR LIBRARY</div><h1>{selectedCategory || 'All files'}</h1><p className="subhead">{total.toLocaleString()} {selectedCategory ? selectedCategory.toLowerCase() : 'files'} in your library</p></div><button className="button-primary" onClick={() => setScanOpen(true)}><Plus size={17} /> Scan a folder</button></section>
-          <section className="panel file-list-panel"><div className="list-toolbar"><div className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files..." /><kbd>⌘ K</kbd></div><div className="toolbar-right"><button className="button-secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Refresh</button><button className="button-secondary" onClick={() => void previewOrganize()}>{busy === 'organize' ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} Organize</button></div></div><FileTable files={files} onDelete={setConfirmDelete} /><Pagination page={page} pageSize={pageSize} total={total} setPage={setPage} /></section>
+          <section className="panel file-list-panel"><div className="list-toolbar"><div className="search-box"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search files..." /><kbd>⌘ K</kbd></div><div className="toolbar-right"><button className="button-secondary" onClick={() => setClearOpen(true)}><Trash2 size={14} /> Clear library</button><button className="button-secondary" onClick={() => void refresh()}><RefreshCw size={15} /> Refresh</button><button className="button-secondary" onClick={() => void previewOrganize()}>{busy === 'organize' ? <LoaderCircle className="spin" size={15} /> : <Sparkles size={15} />} Organize</button></div></div><FileTable files={files} onDelete={setConfirmDelete} /><Pagination page={page} pageSize={pageSize} total={total} setPage={setPage} /></section>
         </>}
 
         {view === 'duplicates' && <>
@@ -218,9 +233,10 @@ export default function App() {
 
     {scanOpen && <Modal title="Scan a folder" subtitle="Index files from any folder your API server can access." onClose={() => setScanOpen(false)}><form onSubmit={scanFolder}><label className="form-label" htmlFor="folder-path">Folder path</label><input id="folder-path" className="text-input" value={rootPath} onChange={(e) => setRootPath(e.target.value)} placeholder="E:\\test-dropbox" autoFocus /><p className="form-hint"><ShieldCheck size={14} /> Files are indexed locally. SHA-256 hashing may take a while for large folders.</p><div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setScanOpen(false)}>Cancel</button><button type="submit" className="button-primary" disabled={!rootPath.trim() || busy === 'scan'}>{busy === 'scan' ? <><LoaderCircle size={16} className="spin" /> Scanning...</> : <><Search size={16} /> Scan folder</>}</button></div></form></Modal>}
 
-    {organizeOpen && <Modal title="Organize preview" subtitle={`${moves.length} direct child files will be moved into category folders.`} onClose={() => setOrganizeOpen(false)}><div className="move-preview">{moves.length === 0 ? <div className="preview-empty"><Check size={20} /> Nothing to organize in this folder.</div> : moves.slice(0, 8).map((move, i) => <div className="move-row" key={`${move.source}-${i}`}><span className={`category-icon ${categoryColors[move.category]}`}><Folder size={15} /></span><span className="move-name">{move.source.split(/[\\/]/).at(-1)}</span><ChevronRight size={14} /><span className="move-dest">{move.category}/</span></div>)}{moves.length > 8 && <p className="more-moves">and {moves.length - 8} more files...</p>}</div><div className="form-hint warning-hint"><TriangleAlert size={14} /> Applying this will move files on disk. You can review the preview before continuing.</div><div className="modal-actions"><button className="button-secondary" onClick={() => setOrganizeOpen(false)}>Cancel</button><button className="button-primary" onClick={() => void applyOrganize()} disabled={moves.length === 0 || !!busy}>{busy === 'organize' ? <><LoaderCircle size={16} className="spin" /> Organizing...</> : <><Sparkles size={16} /> Apply organization</>}</button></div></Modal>}
+    {organizeOpen && <Modal title="Organize preview" subtitle={`${moves.length} files will be moved using the selected layout. Files in nested folders are included.`} onClose={() => setOrganizeOpen(false)}><label className="form-label" htmlFor="organize-mode">Organize by</label><select id="organize-mode" className="text-input organize-select" value={organizeMode} disabled={!!busy} onChange={(event) => void previewOrganize(event.target.value as Organization)}><option value="category">File category</option><option value="year">Modified year</option><option value="month">Modified year / month</option><option value="date">Modified year / month / day</option></select><div className="form-hint"><Folder size={14} /> Date layouts use each file’s modified date.</div><div className="move-preview">{moves.length === 0 ? <div className="preview-empty"><Check size={20} /> Nothing to organize in this folder.</div> : moves.slice(0, 8).map((move, i) => <div className="move-row" key={`${move.source}-${i}`}><span className={`category-icon ${categoryColors[move.category]}`}><Folder size={15} /></span><span className="move-name">{move.source.split(/[\\/]/).at(-1)}</span><ChevronRight size={14} /><span className="move-dest">{move.destination.slice(scannedRoot.length + 1).replaceAll('\\', '/')}</span></div>)}{moves.length > 8 && <p className="more-moves">and {moves.length - 8} more files...</p>}</div><div className="form-hint warning-hint"><TriangleAlert size={14} /> Applying this will move files on disk. You can review the preview before continuing.</div><div className="modal-actions"><button className="button-secondary" onClick={() => setOrganizeOpen(false)}>Cancel</button><button className="button-primary" onClick={() => void applyOrganize()} disabled={moves.length === 0 || !!busy}>{busy === 'organize' ? <><LoaderCircle size={16} className="spin" /> Organizing...</> : <><Sparkles size={16} /> Apply organization</>}</button></div></Modal>}
 
     {confirmDelete && <Modal title="Remove from library?" subtitle={`“${confirmDelete.filename}” will be removed from the index. The file on disk will not be deleted.`} onClose={() => setConfirmDelete(null)}><div className="modal-actions"><button className="button-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button><button className="button-danger" onClick={() => void removeFile(confirmDelete)} disabled={busy === `delete-${confirmDelete.id}`}>{busy === `delete-${confirmDelete.id}` ? <LoaderCircle size={16} className="spin" /> : null}Remove record</button></div></Modal>}
+    {clearOpen && <Modal title="Clear your library?" subtitle="This permanently removes every indexed file record and duplicate result from the database. Your actual files and folders on disk will not be deleted." onClose={() => setClearOpen(false)}><div className="modal-actions"><button className="button-secondary" onClick={() => setClearOpen(false)}>Cancel</button><button className="button-danger" onClick={() => void clearLibrary()} disabled={busy === 'clear'}>{busy === 'clear' ? <LoaderCircle size={16} className="spin" /> : <Trash2 size={15} />}Clear indexed data</button></div></Modal>}
   </div>
 }
 

@@ -14,6 +14,7 @@ export type FilePage = { items: FileRecord[]; total: number; limit: number; offs
 export type DuplicateGroup = { sha256: string; size: number; files: FileRecord[] }
 export type Move = { source: string; destination: string; category: string }
 export type OrganizeResult = { dry_run: boolean; moved: number; moves: Move[] }
+export type Organization = 'category' | 'year' | 'month' | 'date'
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
@@ -39,8 +40,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const api = {
-  files: (params: { offset?: number; limit?: number; category?: string; search?: string } = {}) => {
+export const fileOrganizerApi = {
+  listFiles: (params: { offset?: number; limit?: number; category?: string; search?: string } = {}) => {
     const query = new URLSearchParams()
     query.set('limit', String(params.limit ?? 100))
     query.set('offset', String(params.offset ?? 0))
@@ -48,14 +49,15 @@ export const api = {
     if (params.search) query.set('search', params.search)
     return request<FilePage>(`/files?${query}`)
   },
-  scan: (root_path: string) => request<{ scanned: number; added: number; updated: number; skipped: number }>('/scan', {
+  scanFolder: (root_path: string) => request<{ scanned: number; added: number; updated: number; skipped: number }>('/scan', {
     method: 'POST', body: JSON.stringify({ root_path, hash_files: true }),
   }),
-  duplicates: () => request<{ groups: DuplicateGroup[]; duplicate_files: number }>('/duplicates', { method: 'POST' }),
-  organize: (root_path: string, dry_run: boolean) => request<OrganizeResult>('/organize', {
-    method: 'POST', body: JSON.stringify({ root_path, dry_run }),
+  findDuplicateFileGroups: () => request<{ groups: DuplicateGroup[]; duplicate_files: number }>('/duplicates', { method: 'POST' }),
+  organizeFolder: (root_path: string, dry_run: boolean, organization: Organization) => request<OrganizeResult>('/organize', {
+    method: 'POST', body: JSON.stringify({ root_path, dry_run, organization }),
   }),
-  deleteFile: (id: number) => request<void>(`/files/${id}`, { method: 'DELETE' }),
+  removeFileRecord: (id: number) => request<void>(`/files/${id}`, { method: 'DELETE' }),
+  clearIndexedLibrary: () => request<{ deleted: number }>('/files', { method: 'DELETE' }),
 }
 
 export const categories = ['Images', 'Documents', 'Videos', 'Music', 'Archives', 'Code', 'Other']

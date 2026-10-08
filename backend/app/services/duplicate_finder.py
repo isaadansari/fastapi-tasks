@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import FileRecord
 
 
-def find_duplicates(db: Session) -> list[tuple[str, int, list[FileRecord]]]:
+def find_duplicate_file_groups(db: Session) -> list[tuple[str, int, list[FileRecord]]]:
     duplicate_hashes = db.scalars(
         select(FileRecord.sha256)
         .where(FileRecord.sha256.is_not(None))

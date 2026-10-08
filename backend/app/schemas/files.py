@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -11,8 +13,9 @@ class ScanRequest(BaseModel):
 
 
 class OrganizeRequest(BaseModel):
-    root_path: str = Field(min_length=1, description="Directory whose direct child files should be organized")
+    root_path: str = Field(min_length=1, description="Directory whose files should be organized recursively")
     dry_run: bool = True
+    organization: Literal["category", "year", "month", "date"] = "category"
 
 
 class FileResponse(BaseModel):

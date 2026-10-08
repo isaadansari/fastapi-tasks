@@ -1,7 +1,7 @@
 """File listing, scanning, organizing, duplicate detection, and removal."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,9 +10,9 @@ from app.schemas.files import (
     DuplicateGroup, DuplicateResponse, FilePage, FileResponse, OrganizeRequest,
     OrganizeResponse, ScanRequest, ScanResponse,
 )
-from app.services.duplicate_finder import find_duplicates
-from app.services.organizer import organize_directory
-from app.services.scanner import scan_directory
+from app.services.duplicate_finder import find_duplicate_file_groups
+from app.services.organizer import organize_files_in_directory
+from app.services.scanner import scan_files_in_directory
 
 router = APIRouter(tags=["files"])
 
@@ -38,7 +38,7 @@ def list_files(
 
 
 @router.get("/files/{file_id}", response_model=FileResponse)
-def get_file(file_id: int, db: Session = Depends(get_db)) -> FileRecord:
+def get_file_record(file_id: int, db: Session = Depends(get_db)) -> FileRecord:
     record = db.get(FileRecord, file_id)
     if record is None:
         raise HTTPException(status_code=404, detail="File record not found")
@@ -46,7 +46,7 @@ def get_file(file_id: int, db: Session = Depends(get_db)) -> FileRecord:
 
 
 @router.delete("/files/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_file_record(file_id: int, db: Session = Depends(get_db)) -> Response:
+def remove_file_record(file_id: int, db: Session = Depends(get_db)) -> Response:
     record = db.get(FileRecord, file_id)
     if record is None:
         raise HTTPException(status_code=404, detail="File record not found")
@@ -55,24 +55,32 @@ def delete_file_record(file_id: int, db: Session = Depends(get_db)) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.delete("/files", tags=["files"])
+def clear_indexed_file_records(db: Session = Depends(get_db)) -> dict[str, int]:
+    """Clear indexed metadata only; files on disk are never removed."""
+    result = db.execute(delete(FileRecord))
+    db.commit()
+    return {"deleted": result.rowcount or 0}
+
+
 @router.post("/scan", response_model=ScanResponse)
-def scan(request: ScanRequest, db: Session = Depends(get_db)) -> ScanResponse:
+def scan_directory_endpoint(request: ScanRequest, db: Session = Depends(get_db)) -> ScanResponse:
     try:
-        return ScanResponse(**scan_directory(request.root_path, db, request.hash_files))
+        return ScanResponse(**scan_files_in_directory(request.root_path, db, request.hash_files))
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/organize", response_model=OrganizeResponse)
-def organize(request: OrganizeRequest, db: Session = Depends(get_db)) -> OrganizeResponse:
+def organize_directory_endpoint(request: OrganizeRequest, db: Session = Depends(get_db)) -> OrganizeResponse:
     try:
-        moves = organize_directory(request.root_path, db, request.dry_run)
+        moves = organize_files_in_directory(request.root_path, db, request.dry_run, request.organization)
         return OrganizeResponse(dry_run=request.dry_run, moved=0 if request.dry_run else len(moves), moves=moves)
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/duplicates", response_model=DuplicateResponse)
-def duplicates(db: Session = Depends(get_db)) -> DuplicateResponse:
-    groups = [DuplicateGroup(sha256=digest, size=size, files=files) for digest, size, files in find_duplicates(db)]
+def list_duplicate_file_groups(db: Session = Depends(get_db)) -> DuplicateResponse:
+    groups = [DuplicateGroup(sha256=digest, size=size, files=files) for digest, size, files in find_duplicate_file_groups(db)]
     return DuplicateResponse(groups=groups, duplicate_files=sum(len(group.files) for group in groups))

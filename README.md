@@ -36,8 +36,9 @@ Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.
 - `GET /files/{id}` — one indexed record.
 - `POST /scan` with `{"root_path":"E:\\test-dropbox","hash_files":true}` — recursively index files. Hashing can be disabled for faster scans; run the scan with hashing enabled before duplicate detection.
 - `POST /duplicates` — groups indexed files by SHA-256.
-- `POST /organize` with `{"root_path":"E:\\test-dropbox","dry_run":true}` — preview moves. Set `dry_run` to `false` to move direct child files into category subfolders. Existing names receive a numbered suffix rather than being overwritten.
+- `POST /organize` with `{"root_path":"E:\\test-dropbox","dry_run":true,"organization":"month"}` — recursively preview moves, including files already inside folders from an earlier organization. `organization` can be `category`, `year`, `month`, or `date`; date layouts use each file's modified time and create `YYYY`, `YYYY/MM`, or `YYYY/MM/DD` folders. Set `dry_run` to `false` to apply the moves. Existing names receive a numbered suffix rather than being overwritten.
 - `DELETE /files/{id}` — remove the database record only; it does not delete the physical file.
+- `DELETE /files` — clear all indexed records only; it does not delete files or folders on disk.
 
 The scan root is provided per request. Filesystem paths are kept local to the server and should only be exposed to trusted clients. The organizer starts in preview mode by default. Timestamps are stored as UTC. SQLite database location is configured with `DATABASE_URL`.
 
