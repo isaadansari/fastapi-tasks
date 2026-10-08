@@ -11,5 +11,9 @@ export function formatBytes(bytes: number): string {
 }
 
 export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value))
 }

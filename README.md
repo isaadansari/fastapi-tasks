@@ -47,3 +47,13 @@ Frontend UI pieces that are shared across views live in `frontend/src/components
 The scan root is provided per request. Filesystem paths are kept local to the server and should only be exposed to trusted clients. The organizer starts in preview mode by default. Timestamps are stored as UTC. SQLite database location is configured with `DATABASE_URL`.
 
 Categories: Images, Documents, Videos, Music, Archives, Code, Other.
+# Frontend formatting
+
+Run these commands from `frontend/`:
+
+```powershell
+yarn install
+yarn pretty
+```
+
+`yarn pretty` formats supported TypeScript, JavaScript, JSON, CSS, and Markdown files. To check formatting without changing files, run `yarn pretty:check`.

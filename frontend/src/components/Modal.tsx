@@ -9,13 +9,24 @@ type ModalProps = {
 }
 
 export function Modal({ title, subtitle, onClose, children }: ModalProps) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-    <section className="modal" role="dialog" aria-modal="true" aria-label={title}>
-      <button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
-      <span className="modal-symbol"><FolderOpen size={21} /></span>
-      <h2>{title}</h2>
-      <p className="modal-subtitle">{subtitle}</p>
-      {children}
-    </section>
-  </div>
+  return (
+    <div
+      className="modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <section className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <button className="modal-close" onClick={onClose} aria-label="Close">
+          <X size={18} />
+        </button>
+        <span className="modal-symbol">
+          <FolderOpen size={21} />
+        </span>
+        <h2>{title}</h2>
+        <p className="modal-subtitle">{subtitle}</p>
+        {children}
+      </section>
+    </div>
+  )
 }

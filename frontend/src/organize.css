@@ -1,1 +1,10 @@
-.organize-select{appearance:auto;background:#fff;margin-bottom:2px}.move-dest{max-width:210px;overflow:hidden;text-overflow:ellipsis}
+.organize-select {
+  appearance: auto;
+  background: #fff;
+  margin-bottom: 2px;
+}
+.move-dest {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -6,7 +6,11 @@ import { Modal } from './Modal'
 describe('Modal', () => {
   it('shows its content and closes from the close button', () => {
     const onClose = vi.fn()
-    render(<Modal title="Confirm action" subtitle="Check this first" onClose={onClose}>Dialog body</Modal>)
+    render(
+      <Modal title="Confirm action" subtitle="Check this first" onClose={onClose}>
+        Dialog body
+      </Modal>,
+    )
 
     expect(screen.getByRole('dialog', { name: 'Confirm action' })).toBeTruthy()
     expect(screen.getByText('Dialog body')).toBeTruthy()
@@ -16,7 +20,11 @@ describe('Modal', () => {
 
   it('closes on a backdrop click but not on a dialog click', () => {
     const onClose = vi.fn()
-    const { container } = render(<Modal title="Confirm action" subtitle="" onClose={onClose}>Body</Modal>)
+    const { container } = render(
+      <Modal title="Confirm action" subtitle="" onClose={onClose}>
+        Body
+      </Modal>,
+    )
     const backdrop = container.querySelector('.modal-backdrop')!
 
     fireEvent.mouseDown(screen.getByRole('dialog'))

@@ -1,1 +1,20 @@
-.clear-action{border-top:1px solid #f0f2f0}.clear-action b{color:#9a625b}.clear-action:hover b{color:#a84f47}.clear-action-icon{background:#fbefed;color:#b36a60}.toolbar-right .button-secondary:first-child{color:#a3655d}.toolbar-right .button-secondary:first-child:hover{background:#fff8f7;border-color:#eddad7}
+.clear-action {
+  border-top: 1px solid #f0f2f0;
+}
+.clear-action b {
+  color: #9a625b;
+}
+.clear-action:hover b {
+  color: #a84f47;
+}
+.clear-action-icon {
+  background: #fbefed;
+  color: #b36a60;
+}
+.toolbar-right .button-secondary:first-child {
+  color: #a3655d;
+}
+.toolbar-right .button-secondary:first-child:hover {
+  background: #fff8f7;
+  border-color: #eddad7;
+}
