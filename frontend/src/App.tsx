@@ -6,6 +6,7 @@ import {
   Sparkles, TriangleAlert, X,
 } from 'lucide-react'
 import { api, categories, type DuplicateGroup, type FileRecord, type Move } from './api'
+import './offline.css'
 
 type View = 'overview' | 'all' | 'duplicates'
 const categoryIcons: Record<string, typeof File> = {
@@ -47,6 +48,8 @@ export default function App() {
   const [moves, setMoves] = useState<Move[]>([])
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [apiOffline, setApiOffline] = useState(false)
+  const [startingApi, setStartingApi] = useState(false)
   const [notice, setNotice] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<FileRecord | null>(null)
   const pageSize = 10
@@ -70,12 +73,30 @@ export default function App() {
   }, [])
   const refresh = useCallback(async () => {
     setError('')
-    try { await Promise.all([loadFiles(), loadDuplicates(), loadCategoryCounts()]) }
-    catch (e) { setError(e instanceof Error ? e.message : 'Could not load files.') }
+    try {
+      await Promise.all([loadFiles(), loadDuplicates(), loadCategoryCounts()])
+      setApiOffline(false)
+    } catch (e) {
+      setApiOffline(true)
+      setError(e instanceof Error ? e.message : 'Could not load files.')
+    }
   }, [loadFiles, loadDuplicates, loadCategoryCounts])
 
   useEffect(() => { void refresh() }, [refresh])
   useEffect(() => { setPage(0) }, [search, selectedCategory])
+
+  async function startApi() {
+    setStartingApi(true); setError('')
+    try {
+      const response = await fetch('/__local/start-api', { method: 'POST' })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.detail || 'Could not start the API.')
+      setNotice(result.message || 'The API is running.')
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not start the API.')
+    } finally { setStartingApi(false) }
+  }
 
   async function scanFolder(event: FormEvent) {
     event.preventDefault()
@@ -155,6 +176,7 @@ export default function App() {
       <div className="content">
         {error && <div className="toast error-toast"><TriangleAlert size={17} />{error}<button onClick={() => setError('')}><X size={16} /></button></div>}
         {notice && <div className="toast success-toast"><Check size={17} />{notice}<button onClick={() => setNotice('')}><X size={16} /></button></div>}
+        {apiOffline && <div className="api-offline-card"><span className="offline-indicator"><HardDrive size={17} /></span><span className="offline-copy"><b>API server isn’t running</b><small>Start the local Python service to load your library.</small></span><button className="button-primary" onClick={() => void startApi()} disabled={startingApi}>{startingApi ? <><LoaderCircle size={15} className="spin" /> Starting...</> : <><Plus size={15} /> Start API</>}</button></div>}
 
         {view === 'overview' && <>
           <section className="welcome-row"><div><div className="eyebrow"><Sparkles size={13} /> YOUR PERSONAL LIBRARY</div><h1>Good to see you, Sam<span className="wave">✳</span></h1><p className="subhead">Everything in its right place. Here's your file overview.</p></div><button className="button-primary" onClick={() => setScanOpen(true)}><Plus size={17} /> Scan a folder</button></section>

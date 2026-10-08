@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.env` (default `http://127.0.0.1:8000`). Keep the FastAPI server running in the first window.
+Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.env` (default `http://127.0.0.1:8000`). If the API is stopped, use **Start API** in the frontend; the local Vite server starts Uvicorn from the `backend` folder. The Python environment must already have the backend requirements installed (`pip install -r requirements.txt`).
 
 ## API
 
