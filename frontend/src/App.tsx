@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
-  Archive, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown,
+  Archive, Check, ChevronDown, ChevronRight, ChevronsUpDown,
   CircleHelp, Code2, File, FileImage, FileText, Film, Folder, FolderOpen, HardDrive,
   LayoutDashboard, LoaderCircle, Music2, Plus, RefreshCw, Search, Settings2, ShieldCheck,
   Sparkles, TriangleAlert, Trash2, X,
@@ -9,6 +9,13 @@ import { fileOrganizerApi, categories, type DuplicateGroup, type FileRecord, typ
 import './offline.css'
 import './cleanup.css'
 import './organize.css'
+import { DuplicateCard } from './components/DuplicateCard'
+import { DuplicateIcon as CopyIcon } from './components/DuplicateIcon'
+import { FileTable as ReusableFileTable } from './components/FileTable'
+import { Modal } from './components/Modal'
+import { Pagination } from './components/Pagination'
+import { StatCard } from './components/StatCard'
+import { formatBytes, formatDate } from './utils/formatters'
 
 type View = 'overview' | 'all' | 'duplicates'
 const categoryIcons: Record<string, typeof File> = {
@@ -19,19 +26,6 @@ const categoryColors: Record<string, string> = {
   Images: 'lilac', Documents: 'blue', Videos: 'rose', Music: 'amber',
   Archives: 'mint', Code: 'slate', Other: 'gray',
 }
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let size = bytes / 1024
-  let unit = 0
-  while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit++ }
-  return `${size.toFixed(size < 10 ? 1 : 0)} ${units[unit]}`
-}
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value))
-}
-function initials(name: string) { const parts = name.split(/[\\/]/).filter(Boolean); return parts[parts.length - 1]?.slice(0, 1).toUpperCase() || 'S' }
 
 export default function App() {
   const [view, setView] = useState<View>('overview')
@@ -240,24 +234,11 @@ export default function App() {
   </div>
 }
 
-function CopyIcon() { return <span className="copy-icon"><File size={13} /><File size={13} /></span> }
-function StatCard({ label, value, icon, tone, detail, status }: { label: string; value: string; icon: ReactNode; tone: string; detail: string; status?: boolean }) {
-  return <div className="stat-card"><div className="stat-top"><span>{label}</span><span className={`stat-icon ${tone}`}>{icon}</span></div><div className="stat-value">{status && <span className="status-dot" />}{value}</div><div className="stat-detail" title={detail}>{detail}</div></div>
-}
 function FileTable({ files, onDelete, compact = false }: { files: FileRecord[]; onDelete: (file: FileRecord) => void; compact?: boolean }) {
+  return <ReusableFileTable files={files} onRemove={onDelete} compact={compact} />
   if (files.length === 0) return <div className="table-empty"><span className="empty-icon small-empty"><FolderOpen size={19} /></span><b>No files here yet</b><span>Scan a folder to start building your library.</span></div>
   return <div className="table-scroll"><table className="file-table"><thead><tr><th>NAME</th><th>CATEGORY</th>{!compact && <th>LOCATION</th>}<th>SIZE</th><th>MODIFIED</th><th></th></tr></thead><tbody>{files.map((file) => {
     const Icon = categoryIcons[file.category] || File
     return <tr key={file.id}><td><div className="file-cell"><span className={`file-type-icon ${categoryColors[file.category] || 'gray'}`}><Icon size={16} /></span><span className="file-name-wrap"><b title={file.filename}>{file.filename}</b><small>{file.extension || 'No extension'}</small></span></div></td><td><span className={`category-chip ${categoryColors[file.category] || 'gray'}`}>{file.category}</span></td>{!compact && <td><span className="path-cell" title={file.path}>{file.path}</span></td>}<td className="muted-cell">{formatBytes(file.size)}</td><td className="muted-cell">{formatDate(file.modified_at)}</td><td><button className="row-menu" title="Remove record" onClick={() => onDelete(file)}><ChevronDown size={15} /></button></td></tr>
   })}</tbody></table></div>
-}
-function Pagination({ page, pageSize, total, setPage }: { page: number; pageSize: number; total: number; setPage: (page: number) => void }) {
-  const pages = Math.max(1, Math.ceil(total / pageSize))
-  return <div className="pagination"><span>Showing <b>{total ? page * pageSize + 1 : 0}–{Math.min((page + 1) * pageSize, total)}</b> of <b>{total.toLocaleString()}</b> files</span><div className="page-controls"><button disabled={page === 0} onClick={() => setPage(page - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><span>Page {page + 1} of {pages}</span><button disabled={page + 1 >= pages} onClick={() => setPage(page + 1)} aria-label="Next page"><ChevronRight size={16} /></button></div></div>
-}
-function DuplicateCard({ group }: { group: DuplicateGroup }) {
-  return <section className="panel duplicate-card"><div className="duplicate-heading"><div className="duplicate-title"><span className="action-icon peach"><CopyIcon /></span><span><b>{group.files.length} identical files</b><small>{formatBytes(group.size)} each · {formatBytes(group.size * (group.files.length - 1))} potential space</small></span></div><span className="hash-pill">SHA-256 · {group.sha256.slice(0, 12)}…</span></div><div className="duplicate-files">{group.files.map((file) => <div className="duplicate-file" key={file.id}><span className="file-type-icon blue"><File size={15} /></span><span className="duplicate-file-name"><b>{file.filename}</b><small title={file.path}>{file.path}</small></span><span className="muted-cell">{formatDate(file.modified_at)}</span></div>)}</div></section>
-}
-function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: ReactNode }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="modal" role="dialog" aria-modal="true" aria-label={title}><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button><span className="modal-symbol"><FolderOpen size={21} /></span><h2>{title}</h2><p className="modal-subtitle">{subtitle}</p>{children}</section></div>
 }

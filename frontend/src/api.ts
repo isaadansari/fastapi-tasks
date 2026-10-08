@@ -4,6 +4,8 @@ export type FileRecord = {
   filename: string
   extension: string
   category: string
+  subcategory?: string | null
+  type_label?: string | null
   size: number
   created_at: string
   modified_at: string

@@ -67,4 +67,4 @@ function localApiLauncher() {
   }
 }
 
-export default defineConfig({ plugins: [react(), localApiLauncher()], server: { host: '127.0.0.1', port: 5173 } })
+export default defineConfig({ plugins: [react(), localApiLauncher() as import('vite').Plugin], server: { host: '127.0.0.1', port: 5173 } })

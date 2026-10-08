@@ -30,6 +30,10 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. The frontend reads `VITE_API_URL` from `frontend/.env` (default `http://127.0.0.1:8000`). If the API is stopped, use **Start API** in the frontend; the local Vite server starts Uvicorn from the `backend` folder. The Python environment must already have the backend requirements installed (`pip install -r requirements.txt`).
 
+Run frontend unit tests from `frontend/` with `npm run test:run`; use `npm test` for watch mode.
+
+Frontend UI pieces that are shared across views live in `frontend/src/components/`; display formatting helpers live in `frontend/src/utils/`. Vitest runs in jsdom and exercises the file table, dialog, and formatting helpers.
+
 ## API
 
 - `GET /files?category=Images&search=photo&limit=100&offset=0` — paginated index.
